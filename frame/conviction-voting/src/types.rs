@@ -22,10 +22,7 @@ use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
-};
+use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{fmt::Debug, marker::PhantomData};
 
 use super::*;
@@ -227,28 +224,40 @@ pub struct Delegations<Balance> {
 	pub capital: Balance,
 }
 
-impl<Balance: Saturating> Saturating for Delegations<Balance> {
+impl<Balance: One> One for Delegations<Balance> {
+	fn one() -> Self {
+		Self { votes: One::one(), capital: One::one() }
+	}
+}
+
+impl<Balance: SaturatingAdd> SaturatingAdd for Delegations<Balance> {
 	fn saturating_add(self, o: Self) -> Self {
 		Self {
 			votes: self.votes.saturating_add(o.votes),
 			capital: self.capital.saturating_add(o.capital),
 		}
 	}
+}
 
+impl<Balance: SaturatingSub> SaturatingSub for Delegations<Balance> {
 	fn saturating_sub(self, o: Self) -> Self {
 		Self {
 			votes: self.votes.saturating_sub(o.votes),
 			capital: self.capital.saturating_sub(o.capital),
 		}
 	}
+}
 
+impl<Balance: SaturatingMul> SaturatingMul for Delegations<Balance> {
 	fn saturating_mul(self, o: Self) -> Self {
 		Self {
 			votes: self.votes.saturating_mul(o.votes),
 			capital: self.capital.saturating_mul(o.capital),
 		}
 	}
+}
 
+impl<Balance: SaturatingPow> SaturatingPow for Delegations<Balance> {
 	fn saturating_pow(self, exp: usize) -> Self {
 		Self { votes: self.votes.saturating_pow(exp), capital: self.capital.saturating_pow(exp) }
 	}

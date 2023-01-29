@@ -96,7 +96,7 @@ where
 	fn tcmp(&self, other: &T, threshold: T) -> Ordering {
 		// early exit.
 		if threshold.is_zero() {
-			return self.cmp(other)
+			return self.cmp(other);
 		}
 
 		let upper_bound = other.saturating_add(threshold);
@@ -201,12 +201,12 @@ where
 
 	// Nothing to do here.
 	if count.is_zero() {
-		return Ok(Vec::<T>::new())
+		return Ok(Vec::<T>::new());
 	}
 
 	let diff = targeted_sum.max(sum) - targeted_sum.min(sum);
 	if diff.is_zero() {
-		return Ok(input.to_vec())
+		return Ok(input.to_vec());
 	}
 
 	let needs_bump = targeted_sum > sum;
@@ -426,7 +426,7 @@ mod normalize_tests {
 #[cfg(test)]
 mod threshold_compare_tests {
 	use super::*;
-	use crate::traits::Saturating;
+	use crate::traits::{SaturatingMul, SaturatingPow};
 	use sp_std::cmp::Ordering;
 
 	#[test]
@@ -473,16 +473,16 @@ mod threshold_compare_tests {
 
 	#[test]
 	fn saturating_mul_works() {
-		assert_eq!(Saturating::saturating_mul(2, i32::MIN), i32::MIN);
-		assert_eq!(Saturating::saturating_mul(2, i32::MAX), i32::MAX);
+		assert_eq!(SaturatingMul::saturating_mul(2, i32::MIN), i32::MIN);
+		assert_eq!(SaturatingMul::saturating_mul(2, i32::MAX), i32::MAX);
 	}
 
 	#[test]
 	fn saturating_pow_works() {
-		assert_eq!(Saturating::saturating_pow(i32::MIN, 0), 1);
-		assert_eq!(Saturating::saturating_pow(i32::MAX, 0), 1);
-		assert_eq!(Saturating::saturating_pow(i32::MIN, 3), i32::MIN);
-		assert_eq!(Saturating::saturating_pow(i32::MIN, 2), i32::MAX);
-		assert_eq!(Saturating::saturating_pow(i32::MAX, 2), i32::MAX);
+		assert_eq!(SaturatingPow::saturating_pow(i32::MIN, 0), 1);
+		assert_eq!(SaturatingPow::saturating_pow(i32::MAX, 0), 1);
+		assert_eq!(SaturatingPow::saturating_pow(i32::MIN, 3), i32::MIN);
+		assert_eq!(SaturatingPow::saturating_pow(i32::MIN, 2), i32::MAX);
+		assert_eq!(SaturatingPow::saturating_pow(i32::MAX, 2), i32::MAX);
 	}
 }

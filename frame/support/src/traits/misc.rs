@@ -21,7 +21,10 @@ use crate::dispatch::Parameter;
 use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
-use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
+use sp_arithmetic::traits::{
+	CheckedAdd, CheckedMul, CheckedSub, One, Saturating, SaturatingAccrue, SaturatingDec,
+	SaturatingInc,
+};
 use sp_core::bounded::bounded_vec::TruncateFrom;
 #[doc(hidden)]
 pub use sp_runtime::traits::{
@@ -345,51 +348,99 @@ impl<T> DefensiveOption<T> for Option<T> {
 	}
 }
 
-/// A variant of [`Defensive`] with the same rationale, for the arithmetic operations where in
-/// case an infallible operation fails, it saturates.
-pub trait DefensiveSaturating {
+pub trait DefensiveSaturatingAdd {
 	/// Return `self` plus `other` defensively.
 	fn defensive_saturating_add(self, other: Self) -> Self;
-	/// Return `self` minus `other` defensively.
-	fn defensive_saturating_sub(self, other: Self) -> Self;
-	/// Return the product of `self` and `other` defensively.
-	fn defensive_saturating_mul(self, other: Self) -> Self;
-	/// Increase `self` by `other` defensively.
-	fn defensive_saturating_accrue(&mut self, other: Self);
-	/// Reduce `self` by `other` defensively.
-	fn defensive_saturating_reduce(&mut self, other: Self);
-	/// Increment `self` by one defensively.
-	fn defensive_saturating_inc(&mut self);
-	/// Decrement `self` by one defensively.
-	fn defensive_saturating_dec(&mut self);
 }
 
-// NOTE: A bit unfortunate, since T has to be bound by all the traits needed. Could make it
-// `DefensiveSaturating<T>` to mitigate.
-impl<T: Saturating + CheckedAdd + CheckedMul + CheckedSub + One> DefensiveSaturating for T {
+impl<T: CheckedAdd + SaturatingAdd> DefensiveSaturatingAdd for T {
 	fn defensive_saturating_add(self, other: Self) -> Self {
-		self.checked_add(&other).defensive_unwrap_or_else(|| self.saturating_add(other))
+		self.checked_add(&other)
+			.defensive_unwrap_or_else(|| self.saturating_add(&other))
 	}
+}
+
+pub trait DefensiveSaturatingSub {
+	/// Return `self` plus `other` defensively.
+	fn defensive_saturating_sub(self, other: Self) -> Self;
+}
+
+impl<T: CheckedSub + SaturatingSub> DefensiveSaturatingSub for T {
 	fn defensive_saturating_sub(self, other: Self) -> Self {
-		self.checked_sub(&other).defensive_unwrap_or_else(|| self.saturating_sub(other))
+		self.checked_sub(&other)
+			.defensive_unwrap_or_else(|| self.saturating_sub(&other))
 	}
+}
+
+pub trait DefensiveSaturatingMul {
+	/// Return `self` plus `other` defensively.
+	fn defensive_saturating_mul(self, other: Self) -> Self;
+}
+
+impl<T: CheckedMul + SaturatingMul> DefensiveSaturatingMul for T {
 	fn defensive_saturating_mul(self, other: Self) -> Self {
-		self.checked_mul(&other).defensive_unwrap_or_else(|| self.saturating_mul(other))
+		self.checked_mul(&other)
+			.defensive_unwrap_or_else(|| self.saturating_mul(&other))
 	}
+}
+
+pub trait DefensiveSaturatingAccrue {
+	/// Increase `self` by `other` defensively.
+	fn defensive_saturating_accrue(&mut self, other: Self);
+}
+
+impl<T: One + SaturatingAccrue> DefensiveSaturatingAccrue for T {
 	fn defensive_saturating_accrue(&mut self, other: Self) {
 		// Use `replace` here since `take` would require `T: Default`.
 		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_add(other);
 	}
+}
+
+pub trait DefensiveSaturatingReduce {
+	/// Reduce `self` by `other` defensively.
+	fn defensive_saturating_reduce(&mut self, other: Self);
+}
+
+impl<T: One + SaturatingReduce> DefensiveSaturatingReduce for T {
 	fn defensive_saturating_reduce(&mut self, other: Self) {
 		// Use `replace` here since `take` would require `T: Default`.
-		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_sub(other);
+		*self = sp_std::mem::replace(self, One::one()).defensive_saturating_add(other);
 	}
+}
+
+pub trait DefensiveSaturatingInc {
+	/// Increment `self` by one defensively.
+	fn defensive_saturating_inc(&mut self);
+}
+
+impl<T: One + SaturatingInc> DefensiveSaturatingInc for T {
 	fn defensive_saturating_inc(&mut self) {
 		self.defensive_saturating_accrue(One::one());
 	}
+}
+
+pub trait DefensiveSaturatingDec {
+	/// Decrement `self` by one defensively.
+	fn defensive_saturating_dec(&mut self);
+}
+
+impl<T: SaturatingDec> DefensiveSaturatingDec for T {
 	fn defensive_saturating_dec(&mut self) {
 		self.defensive_saturating_reduce(One::one());
 	}
+}
+
+/// A variant of [`Defensive`] with the same rationale, for the arithmetic operations where in
+/// case an infallible operation fails, it saturates.
+pub trait DefensiveSaturating:
+	DefensiveSaturatingAdd
+	+ DefensiveSaturatingSub
+	+ DefensiveSaturatingMul
+	+ DefensiveSaturatingInc
+	+ DefensiveSaturatingDec
+	+ DefensiveSaturatingAccrue
+	+ DefensiveSaturatingReduce
+{
 }
 
 /// Construct an object by defensively truncating an input if the `TryFrom` conversion fails.

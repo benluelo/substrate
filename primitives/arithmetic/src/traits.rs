@@ -189,85 +189,118 @@ impl<T: Bounded + Sized, S: TryInto<T> + Sized> UniqueSaturatedInto<T> for S {
 }
 
 /// Saturating arithmetic operations, returning maximum or minimum values instead of overflowing.
-pub trait Saturating {
-	/// Saturating addition. Compute `self + rhs`, saturating at the numeric bounds instead of
-	/// overflowing.
-	fn saturating_add(self, rhs: Self) -> Self;
+pub trait Saturating:
+	SaturatingAdd
+	+ SaturatingSub
+	+ SaturatingMul
+	+ SaturatingInc
+	+ SaturatingDec
+	+ SaturatingAccrue
+	+ SaturatingReduce
+	+ SaturatingPow
+	+ Sized
+{
+	// /// Convenience method for [`SaturatingAdd`].
+	// fn saturating_add(self, rhs: Self) -> Self {
+	// 	SaturatingAdd::saturating_add(self, rhs)
+	// }
 
-	/// Saturating subtraction. Compute `self - rhs`, saturating at the numeric bounds instead of
-	/// overflowing.
-	fn saturating_sub(self, rhs: Self) -> Self;
+	// /// Convenience method for [`SaturatingSub`].
+	// fn saturating_sub(self, rhs: Self) -> Self {
+	// 	SaturatingSub::saturating_sub(self, rhs)
+	// }
 
-	/// Saturating multiply. Compute `self * rhs`, saturating at the numeric bounds instead of
-	/// overflowing.
-	fn saturating_mul(self, rhs: Self) -> Self;
+	// /// Convenience method for [`SaturatingMul`].
+	// fn saturating_mul(self, rhs: Self) -> Self {
+	// 	SaturatingMul::saturating_mul(self, rhs)
+	// }
 
-	/// Saturating exponentiation. Compute `self.pow(exp)`, saturating at the numeric bounds
-	/// instead of overflowing.
-	fn saturating_pow(self, exp: usize) -> Self;
+	// /// Convenience method for [`SaturatingPow`].
+	// fn saturating_pow(self, exp: usize) -> Self {
+	// 	SaturatingPow::saturating_pow(self, exp)
+	// }
 
-	/// Increment self by one, saturating.
-	fn saturating_inc(&mut self)
-	where
-		Self: One,
-	{
-		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
-		*self = o.saturating_add(One::one());
-	}
+	// /// Convenience method for [`SaturatingInc`].
+	// fn saturating_inc(&mut self) {
+	// 	SaturatingInc::saturating_inc(self)
+	// }
 
-	/// Decrement self by one, saturating at zero.
-	fn saturating_dec(&mut self)
-	where
-		Self: One,
-	{
-		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
-		*self = o.saturating_sub(One::one());
-	}
+	// /// Convenience method for [`SaturatingDec`].
+	// fn saturating_dec(&mut self) {
+	// 	SaturatingDec::saturating_dec(self)
+	// }
 
-	/// Increment self by some `amount`, saturating.
-	fn saturating_accrue(&mut self, amount: Self)
-	where
-		Self: One,
-	{
-		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
-		*self = o.saturating_add(amount);
-	}
+	// /// Convenience method for [`SaturatingAccrue`].
+	// fn saturating_accrue(&mut self, amount: Self) {
+	// 	SaturatingAccrue::saturating_accrue(self, amount)
+	// }
 
-	/// Decrement self by some `amount`, saturating at zero.
-	fn saturating_reduce(&mut self, amount: Self)
-	where
-		Self: One,
-	{
-		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
-		*self = o.saturating_sub(amount);
+	// /// Convenience method for [`SaturatingReduce`].
+	// fn saturating_reduce(&mut self, amount: Self) {
+	// 	SaturatingReduce::saturating_reduce(self, amount)
+	// }
+}
+
+fn lksdjf() {
+	fn assert_impl_saturating<T: Saturating>() {}
+
+	assert_impl_saturating::<u128>()
+}
+
+impl<T> Saturating for T where
+	T: SaturatingAdd
+		+ SaturatingSub
+		+ SaturatingMul
+		+ SaturatingInc
+		+ SaturatingDec
+		+ SaturatingAccrue
+		+ SaturatingReduce
+		+ SaturatingPow
+{
+}
+
+pub trait SaturatingAdd {
+	/// Return `self` plus `other` defensively.
+	fn saturating_add(self, other: Self) -> Self;
+}
+
+impl<T: num_traits::SaturatingAdd> SaturatingAdd for T {
+	fn saturating_add(self, other: Self) -> Self {
+		num_traits::SaturatingAdd::saturating_add(&self, &other)
 	}
 }
 
-impl<T: Clone + Zero + One + PartialOrd + CheckedMul + Bounded + num_traits::Saturating> Saturating
-	for T
+pub trait SaturatingSub {
+	/// Return `self` plus `other` defensively.
+	fn saturating_sub(self, other: Self) -> Self;
+}
+
+impl<T: num_traits::SaturatingSub> SaturatingSub for T {
+	fn saturating_sub(self, other: Self) -> Self {
+		num_traits::SaturatingSub::saturating_sub(&self, &other)
+	}
+}
+
+pub trait SaturatingMul {
+	/// Return `self` plus `other` defensively.
+	fn saturating_mul(self, other: Self) -> Self;
+}
+
+impl<T: num_traits::SaturatingMul> SaturatingMul for T {
+	fn saturating_mul(self, other: Self) -> Self {
+		num_traits::SaturatingMul::saturating_mul(&self, &other)
+	}
+}
+
+pub trait SaturatingPow {
+	/// Saturating exponentiation. Compute `self.pow(exp)`, saturating at the numeric bounds
+	/// instead of overflowing.
+	fn saturating_pow(self, exp: usize) -> Self;
+}
+
+impl<T: Clone + Zero + One + PartialOrd + CheckedMul + Bounded + num_traits::Saturating>
+	SaturatingPow for T
 {
-	fn saturating_add(self, o: Self) -> Self {
-		<Self as num_traits::Saturating>::saturating_add(self, o)
-	}
-
-	fn saturating_sub(self, o: Self) -> Self {
-		<Self as num_traits::Saturating>::saturating_sub(self, o)
-	}
-
-	fn saturating_mul(self, o: Self) -> Self {
-		self.checked_mul(&o).unwrap_or_else(|| {
-			if (self < T::zero()) != (o < T::zero()) {
-				Bounded::min_value()
-			} else {
-				Bounded::max_value()
-			}
-		})
-	}
-
 	fn saturating_pow(self, exp: usize) -> Self {
 		let neg = self < T::zero() && exp % 2 != 0;
 		checked_pow(self, exp).unwrap_or_else(|| {
@@ -277,6 +310,50 @@ impl<T: Clone + Zero + One + PartialOrd + CheckedMul + Bounded + num_traits::Sat
 				Bounded::max_value()
 			}
 		})
+	}
+}
+
+pub trait SaturatingInc {
+	/// Increment self by one, saturating.
+	fn saturating_inc(&mut self);
+}
+
+impl<T: SaturatingAccrue + One> SaturatingInc for T {
+	fn saturating_inc(&mut self) {
+		self.saturating_accrue(One::one())
+	}
+}
+
+pub trait SaturatingDec {
+	/// Decrement self by one, saturating at zero.
+	fn saturating_dec(&mut self);
+}
+
+impl<T: SaturatingReduce + One> SaturatingDec for T {
+	fn saturating_dec(&mut self) {
+		self.saturating_reduce(One::one());
+	}
+}
+
+pub trait SaturatingAccrue {
+	/// Increment self by some `amount`, saturating.
+	fn saturating_accrue(&mut self, amount: Self);
+}
+
+impl<T: num_traits::SaturatingAdd> SaturatingAccrue for T {
+	fn saturating_accrue(&mut self, amount: Self) {
+		*self = num_traits::SaturatingAdd::saturating_add(&self, &amount);
+	}
+}
+
+pub trait SaturatingReduce {
+	/// Decrement self by some `amount`, saturating at zero.
+	fn saturating_reduce(&mut self, amount: Self);
+}
+
+impl<T: num_traits::SaturatingSub> SaturatingReduce for T {
+	fn saturating_reduce(&mut self, amount: Self) {
+		*self = num_traits::SaturatingSub::saturating_sub(&self, &amount);
 	}
 }
 
