@@ -94,12 +94,7 @@ impl Weight {
 
 	/// Try to add some `other` weight while upholding the `limit`.
 	pub fn try_add(&self, other: &Self, limit: &Self) -> Option<Self> {
-		let total = self.checked_add(other)?;
-		if total.any_gt(*limit) {
-			None
-		} else {
-			Some(total)
-		}
+		self.checked_add(other).and_then(|total| total.any_gt(*limit).then_some(total))
 	}
 
 	/// Construct [`Weight`] with reference time weight and 0 storage size weight.
@@ -176,60 +171,52 @@ impl Weight {
 	pub fn saturating_reduce(&mut self, amount: Self) {
 		*self = self.saturating_sub(amount);
 	}
+}
 
-	/// Checked [`Weight`] addition. Computes `self + rhs`, returning `None` if overflow occurred.
-	pub const fn checked_add(&self, rhs: &Self) -> Option<Self> {
-		let ref_time = match self.ref_time.checked_add(rhs.ref_time) {
+// `?` is still unstable in const contexts :(
+macro_rules! option_try {
+	($($opt:tt)+) => {
+		match $($opt)+ {
 			Some(t) => t,
 			None => return None,
-		};
-		let proof_size = match self.proof_size.checked_add(rhs.proof_size) {
-			Some(s) => s,
-			None => return None,
-		};
-		Some(Self { ref_time, proof_size })
+		}
+	};
+}
+
+impl Weight {
+	/// Checked [`Weight`] addition. Computes `self + rhs`, returning `None` if overflow occurred.
+	pub const fn checked_add(&self, rhs: &Self) -> Option<Self> {
+		Some(Self {
+			ref_time: option_try!(self.ref_time.checked_add(rhs.ref_time)),
+			proof_size: option_try!(self.proof_size.checked_add(rhs.proof_size)),
+		})
 	}
 
 	/// Checked [`Weight`] subtraction. Computes `self - rhs`, returning `None` if overflow
 	/// occurred.
 	pub const fn checked_sub(&self, rhs: &Self) -> Option<Self> {
-		let ref_time = match self.ref_time.checked_sub(rhs.ref_time) {
-			Some(t) => t,
-			None => return None,
-		};
-		let proof_size = match self.proof_size.checked_sub(rhs.proof_size) {
-			Some(s) => s,
-			None => return None,
-		};
-		Some(Self { ref_time, proof_size })
+		Some(Self {
+			ref_time: option_try!(self.ref_time.checked_sub(rhs.ref_time)),
+			proof_size: option_try!(self.proof_size.checked_sub(rhs.proof_size)),
+		})
 	}
 
 	/// Checked [`Weight`] scalar multiplication. Computes `self.field * scalar` for each field,
 	/// returning `None` if overflow occurred.
 	pub const fn checked_mul(self, scalar: u64) -> Option<Self> {
-		let ref_time = match self.ref_time.checked_mul(scalar) {
-			Some(t) => t,
-			None => return None,
-		};
-		let proof_size = match self.proof_size.checked_mul(scalar) {
-			Some(s) => s,
-			None => return None,
-		};
-		Some(Self { ref_time, proof_size })
+		Some(Self {
+			ref_time: option_try!(self.ref_time.checked_sub(scalar)),
+			proof_size: option_try!(self.proof_size.checked_sub(scalar)),
+		})
 	}
 
 	/// Checked [`Weight`] scalar division. Computes `self.field / scalar` for each field, returning
 	/// `None` if overflow occurred.
 	pub const fn checked_div(self, scalar: u64) -> Option<Self> {
-		let ref_time = match self.ref_time.checked_div(scalar) {
-			Some(t) => t,
-			None => return None,
-		};
-		let proof_size = match self.proof_size.checked_div(scalar) {
-			Some(s) => s,
-			None => return None,
-		};
-		Some(Self { ref_time, proof_size })
+		Some(Self {
+			ref_time: option_try!(self.ref_time.checked_div(scalar)),
+			proof_size: option_try!(self.proof_size.checked_div(scalar)),
+		})
 	}
 
 	/// Try to increase `self` by `amount` via checked addition.
@@ -362,6 +349,7 @@ impl Sub for Weight {
 	}
 }
 
+// can't use Weight::mul since that fn expects a `u64`.
 impl<T> Mul<T> for Weight
 where
 	T: Mul<u64, Output = u64> + Copy,
@@ -466,19 +454,13 @@ impl Bounded for Weight {
 
 impl AddAssign for Weight {
 	fn add_assign(&mut self, other: Self) {
-		*self = Self {
-			ref_time: self.ref_time + other.ref_time,
-			proof_size: self.proof_size + other.proof_size,
-		};
+		*self = Add::add(*self, other);
 	}
 }
 
 impl SubAssign for Weight {
 	fn sub_assign(&mut self, other: Self) {
-		*self = Self {
-			ref_time: self.ref_time - other.ref_time,
-			proof_size: self.proof_size - other.proof_size,
-		};
+		*self = Sub::sub(*self, other);
 	}
 }
 
